@@ -1,0 +1,17 @@
+VideoAI Enhancer - fonte do FFmpeg
+
+O VideoAI Enhancer usa FFmpeg somente para a etapa final de codificacao e preservacao de audio.
+
+A partir da versao 1.6, o aplicativo baixa automaticamente o pacote Windows Essentials quando necessario.
+
+Fonte do build Windows:
+https://www.gyan.dev/ffmpeg/builds/
+
+O site oficial do FFmpeg lista gyan.dev entre as fontes de builds Windows:
+https://www.ffmpeg.org/download.html
+
+Build utilizado pelo aplicativo:
+https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+
+A pagina do fornecedor informa que os builds Windows atuais sao estaticos e licenciados sob GPLv3.
+Consulte os termos/licenca correspondentes antes de redistribuir o aplicativo em um produto comercial.
