@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
-project(VideoAIEnhancer VERSION 2.2.10 LANGUAGES CXX)
+file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION.txt" VIDEOAI_VERSION_LINE LIMIT_COUNT 1)
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" VIDEOAI_VERSION "${VIDEOAI_VERSION_LINE}")
+if(NOT VIDEOAI_VERSION)
+    message(FATAL_ERROR "VERSION.txt deve conter 'VideoAI Enhancer V<major>.<minor>.<patch>'.")
+endif()
+project(VideoAIEnhancer VERSION "${VIDEOAI_VERSION}" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,7 +34,8 @@ add_executable(VideoAI_Enhancer WIN32
     src/RenderLog.cpp src/RenderLog.h
 )
 
-target_include_directories(VideoAI_Enhancer PRIVATE "${ORT_INC}")
+configure_file(src/VideoAIVersion.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/VideoAIVersion.h" @ONLY)
+target_include_directories(VideoAI_Enhancer PRIVATE "${ORT_INC}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(VideoAI_Enhancer PRIVATE "${ORT_LIB}" comdlg32 comctl32 winhttp bcrypt)
 target_compile_options(VideoAI_Enhancer PRIVATE /W4 /permissive- /utf-8)
 set_target_properties(VideoAI_Enhancer PROPERTIES
@@ -40,3 +46,10 @@ set_target_properties(VideoAI_Enhancer PROPERTIES
 add_custom_command(TARGET VideoAI_Enhancer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ORT_DLL}" "$<TARGET_FILE_DIR:VideoAI_Enhancer>/onnxruntime.dll"
 )
+
+set(FFMPEG_EXE "${CMAKE_SOURCE_DIR}/tools/ffmpeg/ffmpeg.exe")
+if(EXISTS "${FFMPEG_EXE}")
+    add_custom_command(TARGET VideoAI_Enhancer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${FFMPEG_EXE}" "$<TARGET_FILE_DIR:VideoAI_Enhancer>/ffmpeg.exe"
+    )
+endif()

@@ -34,6 +34,7 @@ static bool writeAll(HANDLE h,const unsigned char*data,size_t n,std::atomic_bool
 
 std::filesystem::path Ffmpeg::locate() const {
     wchar_t mod[MAX_PATH]{};GetModuleFileNameW(nullptr,mod,MAX_PATH);auto p=std::filesystem::path(mod).parent_path()/L"ffmpeg.exe";if(std::filesystem::exists(p))return p;
+    p=std::filesystem::path(mod).parent_path().parent_path().parent_path()/L"tools"/L"ffmpeg"/L"ffmpeg.exe";if(std::filesystem::exists(p))return p;
     wchar_t buf[MAX_PATH*2]{};DWORD n=SearchPathW(nullptr,L"ffmpeg.exe",nullptr,(DWORD)std::size(buf),buf,nullptr);if(n&&n<std::size(buf))return std::filesystem::path(buf);return{};
 }
 bool Ffmpeg::available() const{return !locate().empty();}
@@ -62,7 +63,7 @@ bool Ffmpeg::canUseNvenc(std::wstring&diagnostic) const{
 bool Ffmpeg::decodePpmPipe(const std::filesystem::path&input,const VideoInfo&info,std::atomic_bool&stop,const std::function<bool(int,int,const std::vector<unsigned char>&,std::wstring&)>&onFrame,std::wstring&error) const{
     auto exe=locate();if(exe.empty()){error=L"FFmpeg não encontrado.";return false;}
     SECURITY_ATTRIBUTES sa{};sa.nLength=sizeof(sa);sa.bInheritHandle=TRUE;HANDLE outR=nullptr,outW=nullptr,errR=nullptr,errW=nullptr;if(!CreatePipe(&outR,&outW,&sa,0)||!CreatePipe(&errR,&errW,&sa,0)){error=L"Falha ao criar os canais do FFmpeg.";return false;}SetHandleInformation(outR,HANDLE_FLAG_INHERIT,0);SetHandleInformation(errR,HANDLE_FLAG_INHERIT,0);
-    ProcessPipe p;std::wstring args=L"-hide_banner -loglevel error -i "+quote(input)+L" -map 0:v:0 -f image2pipe -vcodec ppm -pix_fmt rgb24 -vsync 0 -";std::wstring cmd=quote(exe)+L" "+args;
+    ProcessPipe p;std::wstring args=L"-hide_banner -loglevel error -i "+quote(input)+L" -map 0:v:0 -f image2pipe -vcodec ppm -pix_fmt rgb24 -fps_mode passthrough -";std::wstring cmd=quote(exe)+L" "+args;
     if(!startProcess(cmd,GetStdHandle(STD_INPUT_HANDLE),outW,errW,p)){error=L"Falha ao iniciar o decodificador FFmpeg.";CloseHandle(outR);CloseHandle(outW);CloseHandle(errR);CloseHandle(errW);return false;}CloseHandle(outW);outW=nullptr;CloseHandle(errW);errW=nullptr;
     std::vector<unsigned char> frame;std::string tok;int count=0;
     while(true){if(stop.load()){TerminateProcess(p.process,2);error=L"Processamento interrompido pelo usuário.";break;}if(!readToken(outR,tok,stop))break;if(tok!="P6"){error=L"FFmpeg retornou um frame em formato inesperado.";TerminateProcess(p.process,2);break;}if(!readToken(outR,tok,stop)){error=L"Cabeçalho PPM incompleto.";break;}int w=std::stoi(tok);if(!readToken(outR,tok,stop)){error=L"Cabeçalho PPM incompleto.";break;}int h=std::stoi(tok);if(!readToken(outR,tok,stop)){error=L"Cabeçalho PPM incompleto.";break;}int maxv=std::stoi(tok);if(w<=0||h<=0||maxv!=255){error=L"Dimensões ou profundidade PPM inválidas.";break;}size_t bytes=(size_t)w*h*3;if(bytes>1024ull*1024ull*1024ull){error=L"Frame excede o limite seguro de memória.";break;}frame.resize(bytes);if(!readExact(outR,frame.data(),bytes,stop)){if(stop.load())error=L"Processamento interrompido pelo usuário.";else error=L"FFmpeg encerrou o fluxo de frames antes do fim.";break;}std::wstring cbErr;if(!onFrame(w,h,frame,cbErr)){error=cbErr.empty()?L"O processamento do frame falhou sem diagnóstico.":cbErr;TerminateProcess(p.process,2);break;}count++;}

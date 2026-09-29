@@ -38,8 +38,8 @@ static bool download(const std::string& url,const std::filesystem::path& out,std
  if(!ok){WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses);return false;}
  DWORD statusCode=0, sz=sizeof(statusCode); WinHttpQueryHeaders(req,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,nullptr,&statusCode,&sz,nullptr); if(statusCode<200||statusCode>=300){WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses);return false;}
  std::ofstream f(out,std::ios::binary); if(!f){WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses);return false;}
- BYTE buf[1024*1024]; DWORD n=0; ULONGLONG total=0;
- do{ if(!WinHttpReadData(req,buf,sizeof(buf),&n)){f.close();DeleteFileW(out.c_str());WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses);return false;} if(n){f.write((char*)buf,n); total+=n; if(total%(10*1024*1024)<n){status=L"Baixando modelo: "+std::to_wstring(total/1024/1024)+L" MB";}} }while(n);
+ std::vector<BYTE> buf(1024*1024); DWORD n=0; ULONGLONG total=0;
+ do{ if(!WinHttpReadData(req,buf.data(),static_cast<DWORD>(buf.size()),&n)){f.close();DeleteFileW(out.c_str());WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses);return false;} if(n){f.write(reinterpret_cast<const char*>(buf.data()),n); total+=n; if(total%(10*1024*1024)<n){status=L"Baixando modelo: "+std::to_wstring(total/1024/1024)+L" MB";}} }while(n);
  f.close(); WinHttpCloseHandle(req);WinHttpCloseHandle(con);WinHttpCloseHandle(ses); return true;
 }
 bool ModelManager::ensureModel(const ModelSpec& s,std::wstring& status) const{
