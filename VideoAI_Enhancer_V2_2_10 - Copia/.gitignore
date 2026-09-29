@@ -3,3 +3,4 @@ dist/
 tools/cmake/
 third_party/
 *.log
+**/tools/ffmpeg/ffmpeg.exe
